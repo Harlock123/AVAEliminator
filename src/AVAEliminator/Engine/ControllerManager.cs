@@ -35,6 +35,9 @@ public class ControllerManager : IDisposable
 
     private readonly int _index;
 
+    /// <summary>SDL is not safe to start, poll or stop from two threads at once (the tests make many handlers in parallel).</summary>
+    private static readonly Lock Sdl = new();
+
     /// <summary>Opens the <paramref name="index"/>th game controller (0 for player 1, up to 3 for player 4).</summary>
     public ControllerManager(int index = 0)
     {
@@ -43,6 +46,11 @@ public class ControllerManager : IDisposable
     }
 
     private void Initialize()
+    {
+        lock (Sdl) InitializeLocked();
+    }
+
+    private void InitializeLocked()
     {
         if (_initialized) return;
 
@@ -97,6 +105,11 @@ public class ControllerManager : IDisposable
     /// <summary>Handles SDL's events once a frame, for all the controllers (call before their <see cref="Update"/>).</summary>
     public static void PollEvents()
     {
+        lock (Sdl) PollEventsLocked();
+    }
+
+    private static void PollEventsLocked()
+    {
         try
         {
             while (SDL_PollEvent(out SDL_Event e) != 0)
@@ -112,6 +125,11 @@ public class ControllerManager : IDisposable
     }
 
     public void Update()
+    {
+        lock (Sdl) UpdateLocked();
+    }
+
+    private void UpdateLocked()
     {
         if (!_initialized) return;
 
@@ -182,6 +200,11 @@ public class ControllerManager : IDisposable
     }
 
     public void Dispose()
+    {
+        lock (Sdl) DisposeLocked();
+    }
+
+    private void DisposeLocked()
     {
         if (_disposed) return;
         _disposed = true;
